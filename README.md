@@ -19,6 +19,8 @@ Raspberry Pi 5 上で動く、WiFi 内の DNS を制御するゲートキーパ�
 ### 1. 依存関係の準備
 
 ```bash
+sudo apt update
+sudo apt install -y hostapd dnsmasq nftables
 uv sync
 ```
 
@@ -50,15 +52,38 @@ sudo cp data/blocklists/*.txt /opt/mama/data/blocklists/
 ### 4. ネットワーク設定を適用
 
 ```bash
-sudo uv run mama apply-net
+sudo mkdir -p /etc/hostapd
+sudo env -i PATH=$PATH \
+  $(grep -v '^\s*#' /etc/mama/mama.env | grep -v '^\s*$' | xargs) \
+  /home/pi/.local/bin/uv run mama apply-net
 ```
 
 > hostapd / dnsmasq / nftables / sysctl を適用します。root 権限が必要です。
 
+#### SSID が見えない場合（NetworkManager が再接続するケース）
+
+4 の適用後に `hostapd` 起動直後の SSID が消える場合、NetworkManager が `wlan0` を再接続していることがあります。
+有線で上流が取れている状態で、`wlan0` を AP 専用に切り替えてください。
+
+```bash
+sudo nmcli dev disconnect wlan0
+sudo nmcli dev set wlan0 managed no
+sudo systemctl restart hostapd
+```
+
+元に戻す場合:
+
+```bash
+sudo nmcli dev set wlan0 managed yes
+sudo nmcli dev connect wlan0
+```
+
 ### 5. Gatekeeper を起動
 
 ```bash
-uv run python -m mama.gatekeeper.runtime
+sudo env -i PATH=$PATH \
+  $(grep -v '^\s*#' /etc/mama/mama.env | grep -v '^\s*$' | xargs) \
+  /home/pi/.local/bin/uv run python -m mama.gatekeeper.runtime
 ```
 
 ブラウザで `http://192.168.50.1:8080` にアクセス（Basic 認証）します。  
