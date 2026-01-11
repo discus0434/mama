@@ -4,6 +4,9 @@ model_reasoning_effort = "xhigh"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 
+[model_providers.openai]
+name = "openai"
+
 [sandbox_workspace_write]
 network_access = true
 

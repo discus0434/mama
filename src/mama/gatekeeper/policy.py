@@ -28,7 +28,9 @@ def evaluate_local_limits(
     tz: ZoneInfo,
 ) -> PolicyVerdict:
     local_date = now.astimezone(tz).date()
-    if state.last_reset_date != local_date:
+    if state.last_reset_date is None:
+        state.last_reset_date = local_date
+    elif local_date > state.last_reset_date:
         state.daily_count = 0
         state.last_reset_date = local_date
     if state.daily_count >= policy.daily_limit:

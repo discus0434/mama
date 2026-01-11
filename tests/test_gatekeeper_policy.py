@@ -29,6 +29,25 @@ def test_evaluate_local_limits_resets_daily_count() -> None:
     assert state.last_reset_date == now.date()
 
 
+def test_evaluate_local_limits_does_not_reset_when_last_reset_is_future() -> None:
+    tz = ZoneInfo("Asia/Tokyo")
+    now = datetime(2026, 1, 11, 9, 0, tzinfo=tz)
+    tomorrow = now.date().replace(day=12)
+    state = State(
+        reward_start=RewardConfig().start_time,
+        daily_count=10,
+        last_reset_date=tomorrow,
+    )
+    policy = ExceptionPolicyConfig(daily_limit=10)
+
+    verdict = evaluate_local_limits(state, policy, now, tz)
+
+    assert verdict.allowed is False
+    assert "daily_limit" in verdict.flags
+    assert state.daily_count == 10
+    assert state.last_reset_date == tomorrow
+
+
 def test_evaluate_local_limits_blocks_on_daily_limit() -> None:
     tz = ZoneInfo("Asia/Tokyo")
     now = datetime(2026, 1, 11, 9, 0, tzinfo=tz)

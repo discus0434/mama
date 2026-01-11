@@ -17,7 +17,7 @@ from mama.gatekeeper.storage import load_state, save_state
 
 
 def _build_client(
-    tmp_path: Path, decision_provider=None, dns_apply_handler=None
+    tmp_path: Path, decision_provider=None, dns_apply_handler=None, now_provider=None
 ) -> TestClient:
     config = AppConfig(
         network=NetworkConfig(ssid="mama", passphrase="password123"),
@@ -32,6 +32,7 @@ def _build_client(
         config,
         decision_provider=decision_provider,
         dns_apply_handler=dns_apply_handler,
+        now_provider=now_provider,
     )
     return TestClient(app)
 
@@ -47,7 +48,11 @@ def test_request_denied_by_daily_limit(tmp_path: Path) -> None:
     state_path = tmp_path / "state.json"
     save_state(state_path, state)
 
-    client = _build_client(tmp_path, dns_apply_handler=lambda *_: None)
+    client = _build_client(
+        tmp_path,
+        dns_apply_handler=lambda *_: None,
+        now_provider=lambda _: now,
+    )
     payload = AccessRequest(purpose="work", requested_minutes=10).model_dump()
 
     response = client.post("/request", json=payload, auth=("mama", "secret"))

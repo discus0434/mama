@@ -22,6 +22,7 @@ mama は Raspberry Pi 5 上で **AP/DHCP/DNS/FW** を担い、Gatekeeper（FastA
   - 例外申請をローカル制限 → GPT 判定 → 状態更新の順に処理。
   - 解除状態は reward window / 例外 window を統合して判定。
   - バックグラウンド監視で次回切替時刻まで sleep し、解除/再遮断を自動反映。
+  - 時刻取得は `now_provider` を経由し、テストでは固定時刻を注入可能。
 - **自動起動**
   - `mama-net-apply.service`: ネットワーク設定を適用（oneshot）。
   - `mama-gatekeeper.service`: Gatekeeper を起動（`Requires=` で apply を前提）。
@@ -75,3 +76,5 @@ mama は Raspberry Pi 5 上で **AP/DHCP/DNS/FW** を担い、Gatekeeper（FastA
   - blocklist を空にする（解除） or 既定リストを適用（遮断） → dnsmasq reload
 - **Fail-open**
   - GPT API 失敗時は申請分数をクランプして承認し、遮断解除を優先する。
+- **日次リセット**
+  - `last_reset_date` が未来の場合はリセットせず、日次上限に達していれば拒否する。

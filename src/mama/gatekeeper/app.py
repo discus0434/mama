@@ -35,6 +35,7 @@ TEMPLATE_PATH = Path("templates/index.html")
 
 DecisionProvider = Callable[[AccessRequest, AppConfig], DecisionResult]
 DnsApplyHandler = Callable[[AppConfig, bool], None]
+NowProvider = Callable[[ZoneInfo], datetime]
 
 
 def create_app(
@@ -42,6 +43,7 @@ def create_app(
     *,
     decision_provider: DecisionProvider | None = None,
     dns_apply_handler: DnsApplyHandler | None = None,
+    now_provider: NowProvider | None = None,
 ) -> FastAPI:
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -61,6 +63,7 @@ def create_app(
     app = FastAPI(title="mama gatekeeper", lifespan=lifespan)
     app.state.config = config
     app.state.decision_provider = decision_provider or openai_client.request_decision
+    app.state.now_provider = now_provider or (lambda tz: datetime.now(tz))
 
     def _default_dns_apply_handler(app_config: AppConfig, unblock: bool) -> None:
         apply_dns_block_state(app_config.network, unblock)
@@ -100,7 +103,7 @@ def create_app(
         payload = await _parse_access_request(request)
         gatekeeper_config = _get_gatekeeper_config(app)
         tz = ZoneInfo(gatekeeper_config.timezone)
-        now = datetime.now(tz)
+        now = _get_now_provider(app)(tz)
         state = load_state(gatekeeper_config.state_path, config.reward)
         verdict = evaluate_local_limits(state, config.exception_policy, now, tz)
         if not verdict.allowed:
@@ -167,7 +170,7 @@ def create_app(
         payload = await _parse_reward_settings(request)
         gatekeeper_config = _get_gatekeeper_config(app)
         tz = ZoneInfo(gatekeeper_config.timezone)
-        now = datetime.now(tz)
+        now = _get_now_provider(app)(tz)
         state = load_state(gatekeeper_config.state_path, config.reward)
         state.reward_start = payload.reward_start
         state.reward_enabled = payload.reward_enabled
@@ -209,6 +212,13 @@ def _get_dns_apply_handler(app: FastAPI) -> DnsApplyHandler:
     return handler
 
 
+def _get_now_provider(app: FastAPI) -> NowProvider:
+    provider = getattr(app.state, "now_provider", None)
+    if provider is None:
+        raise RuntimeError("Now provider is not set")
+    return provider
+
+
 def _apply_dns_state(
     app: FastAPI, config: AppConfig, state: State, now: datetime, tz: ZoneInfo
 ) -> None:
@@ -223,7 +233,7 @@ async def _dns_scheduler(app: FastAPI) -> None:
     while not stop_event.is_set():
         config = _get_app_config(app)
         tz = ZoneInfo(config.gatekeeper.timezone)
-        now = datetime.now(tz)
+        now = _get_now_provider(app)(tz)
         state = load_state(config.gatekeeper.state_path, config.reward)
         window = current_window(state, now, tz)
         unblock = should_unblock(window)

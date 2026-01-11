@@ -21,7 +21,8 @@ plan-review:
 	@test -n "$(PROMPT)" || (echo "PROMPT is required" >&2; exit 1)
 	@OUTPUT=$${OUTPUT:-/tmp/plan-review.txt}; \
 	IDLE_MS=$${IDLE_MS:-900000}; \
-	codex exec -s read-only -c model_reasoning_effort="medium" -C . \
+	codex --dangerously-bypass-approvals-and-sandbox \
+		exec -c model_reasoning_effort="medium" -C . \
 		-c "model_providers.openai.stream_idle_timeout_ms=$$IDLE_MS" \
 		--output-last-message "$$OUTPUT" \
 		"$$PROMPT"
