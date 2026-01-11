@@ -1,0 +1,71 @@
+[project]
+name = "python-template-for-codex"
+version = "0.1.0"
+description = "Python template for Codex"
+requires-python = ">=3.12"
+
+dependencies = [
+    "pydantic>=2.12.5",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "ruff>=0.14.11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/python_template_for_codex"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py312"
+
+[tool.ruff.lint]
+exclude = [".venv"]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "SIM",
+    "RUF",
+    "TCH",
+    "PTH",
+    "PL",
+]
+ignore = [
+    "E501",
+    "B007",
+    "B008",
+    "C401",
+    "C408",
+    "G004",
+    "T201",
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    "RUF012",
+    "PTH123",
+    "PERF203",
+    "PERF401",
+    "PLW0603",
+    "PLC0206",
+    "PLC2401",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR2004",
+    "PLW2901",
+    "SIM108",
+]
