@@ -48,6 +48,7 @@ license: Complete terms in LICENSE.txt
 - タスクには**対象ファイル・クラス・関数名**を含める。
 - テスト項目は「どの関数のどの挙動」を検証するかを書く。
 - docs更新は「どのドキュメントのどの章」を更新するかまで具体化する。
+- docs更新の前に **plan-reviewer** のセルフレビューを行うタスクを含める。
 
 ## ミニ例（粒度の目安）
 - 追加: `src/app/exporter.py`

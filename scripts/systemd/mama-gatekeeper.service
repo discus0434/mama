@@ -1,0 +1,15 @@
+[Unit]
+Description=mama Gatekeeper API
+After=network.target mama-net-apply.service
+Requires=mama-net-apply.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/mama/mama.env
+WorkingDirectory=/opt/mama
+ExecStart=/usr/bin/env uv run python -m mama.gatekeeper.runtime
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

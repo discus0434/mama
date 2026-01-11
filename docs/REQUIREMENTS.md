@@ -1,23 +1,37 @@
 # 要求仕様
 
 ## 目的
-Python プロジェクトを `uv` / `ruff` / `pytest` を軸に素早く立ち上げるためのテンプレートを提供する。TDD と計画駆動の開発フローを標準化し、ドキュメントを常に現況へ同期させる。
+mama は Raspberry Pi 5 上で WiFi AP/DHCP/DNS/FW を担い、WiFi 内の特定サービス（X / YouTube / TikTok）へのアクセスを DNS レベルで遮断する。1 日 1 時間のご褒美タイムと GPT-5.2 による例外申請で一時解除できることを目的とする。
 
 ## 機能要件
-- 依存管理は `uv` を用い、Python 3.12 で動作する。
-- 最小限のサンプルコードとして Pydantic ベースの `ApplicationConfig` モデルを提供する。
-  - デフォルトで `debug=False`、`name` と `version` を必須とする。
-  - `version` は `MAJOR.MINOR.PATCH` 形式（例: `1.2.3`）を受け付ける。
-- テストは `pytest` で実行でき、サンプルモデルに対する正常系・異常系テストが用意されている。
-- `Makefile` から `format`（ruff format）、`lint`（ruff check）、`test`（pytest）、`post-change`（上記一括）が実行できる。
+- **ネットワーク制御**
+  - mama が AP/DHCP/DNS/FW を提供し、端末は mama の SSID に接続する。
+  - 既存ルーター設定に依存せず、上流はインターネット回線として扱う。
+- **DNS ブロック**
+  - X / YouTube / TikTok のドメインを dnsmasq でブロックする。
+  - 初期ブロックリストはリポジトリに同梱し、手動更新できる。
+- **ご褒美タイム**
+  - 1 日 1 時間の解除枠を持つ。
+  - 開始時刻と ON/OFF はローカル UI から変更できる。
+- **例外申請**
+  - 申請文を送信し、GPT-5.2 が承認可否と 5〜30 分の解除時間を判断する。
+  - 申請の上限は 1 日 10 回、却下後クールダウンは 5 分。
+  - GPT API 失敗時は **Fail-open**（申請分数を 5〜30 にクランプして承認）とする。
+  - 解除時間やご褒美タイムの終了後は、自動的に再遮断される。
+- **アクセス制御**
+  - Gatekeeper UI/API は HTTP Basic 認証で保護する（.env で設定）。
+  - ローカル LAN 内からの利用を前提とする。
+- **ログ・状態**
+  - 申請ログは JSONL で保存する。
+  - 状態（解除タイマー、日次カウント等）を JSON で永続化する。
 
 ## 非機能要件
-- コードスタイルは Ruff の設定に従い、行長 88、インデント幅 4。
-- ドキュメントは `docs/` 配下に置き、仕様変更時は内容を上書きし常に最新状態を保つ。
-- プランニングは `plans/` 配下に 1 開発単位ごとに作成し、完了後は削除してドキュメントへ反映する。
+- Python 3.12 を前提とし、依存管理は `uv` を用いる。
+- Pydantic v2 で設定と入力モデルを定義する。
+- 例外処理は明示的に raise し、黙殺しない。
+- TDD を徹底し、非テストコード変更時は必ず対応テストを追加する。
 
 ## 運用要件
-- 変更時は TDD を実施し、非テストコードの変更に対しテストを必ず追加・更新する。
-- `make post-change` を変更毎に実行し、format/lint/test の全てを通す。
-- 依存の再現性確保のため `uv.lock` を生成し、リポジトリに含める。
-- Push / PR 時は GitHub Actions（`.github/workflows/ci.yml`）で `make post-change` を実行し、品質チェックを自動化する。
+- `mama apply-net` で hostapd/dnsmasq/nftables/sysctl を適用できること。
+- systemd により mama のネットワーク適用と Gatekeeper を自動起動できること。
+- 変更後は `make post-change` を実行し、format/lint/test を通すこと。

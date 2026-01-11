@@ -1,31 +1,77 @@
 # Design Doc
 
 ## アーキテクチャ概要
-本テンプレートは「設定モデル + テスト + 品質コマンド + ドキュメント」で構成される最小スケルトンであり、依存管理に `uv`、品質管理に `ruff` / `pytest` を採用する。アプリケーションコードは `src/python_template_for_codex` 配下に集約し、テストは `tests/` に配置する。
+mama は Raspberry Pi 5 上で **AP/DHCP/DNS/FW** を担い、Gatekeeper（FastAPI）による申請審査と DNS ブロック制御を統合する。Gatekeeper は HTTP Basic 認証のローカル UI/API を提供し、OpenAI Responses API で判断した結果に基づいて dnsmasq のブロック状態を切り替える。
+
+```
+[Client] --WiFi--> [mama AP]
+  -> DHCP/DNS (dnsmasq)
+  -> FW/NAT (nftables)
+  -> Gatekeeper (FastAPI)
+  -> OpenAI Responses API (gpt-5.2)
+```
 
 ## アーキテクチャ詳細
-- **パッケージ構成**: `src/python_template_for_codex` を単一パッケージとしてビルド対象に登録。
-- **設定モデル**: `ApplicationConfig`（Pydantic v2）でアプリ名・バージョン・デバッグフラグを管理。入力バリデーションとデフォルト適用を担当。
-- **品質ゲート**: `Makefile` 経由で `ruff format` → `ruff check` → `pytest` を実行する `post-change` ターゲットを提供し、変更時のチェックを統一。
-- **CI/CD**: GitHub Actions (`.github/workflows/ci.yml`) で Push / PR ごとに `make post-change` を実行し、ローカルと同一の品質ゲートを強制。
-- **ドキュメント**: 要求仕様（`docs/REQUIREMENTS.md`）と設計（本ドキュメント）を最新状態に保ち、履歴ではなく現況を記載する。
+- **ネットワーク層**
+  - `hostapd`: AP を提供。
+  - `dnsmasq`: DHCP/DNS。ブロックドメインを `address=/domain/0.0.0.0` で遮断。
+  - `nftables`: NAT とフォワード制御。
+  - `sysctl`: IP フォワーディング有効化。
+- **Gatekeeper**
+  - FastAPI で `/`, `/request`, `/settings`, `/health` を提供。
+  - 例外申請をローカル制限 → GPT 判定 → 状態更新の順に処理。
+  - 解除状態は reward window / 例外 window を統合して判定。
+  - バックグラウンド監視で次回切替時刻まで sleep し、解除/再遮断を自動反映。
+- **自動起動**
+  - `mama-net-apply.service`: ネットワーク設定を適用（oneshot）。
+  - `mama-gatekeeper.service`: Gatekeeper を起動（`Requires=` で apply を前提）。
 
 ## データモデル / データフロー
-- `ApplicationConfig`
-  - `name: str` — サービス識別子（必須）
-  - `version: str` — `MAJOR.MINOR.PATCH` 形式のバージョン（必須）
-  - `debug: bool = False` — デバッグ挙動の有効/無効
-  - `field_validator("version")` で先頭の "v" を許容しつつ SemVer 形式へ正規化する。
-- フロー: 入力（dict など）→ Pydantic による検証・正規化 → `ApplicationConfig` インスタンスとしてアプリに供給。
+### 主なモデル
+- `AccessRequest`
+  - `purpose`, `deadline`, `no_alternative`, `requested_minutes`
+- `Decision`
+  - `approved`, `minutes`, `reason`, `policy_flags`
+- `State`
+  - `active_until`, `reward_start`, `reward_enabled`, `daily_count`, `last_denied_at`, `last_reset_date`
+- `AppConfig`
+  - `NetworkConfig`, `GatekeeperConfig`, `RewardConfig`, `ExceptionPolicyConfig`
 
-## 各パートの概要
-- **config.py**: 設定モデルの定義と軽微な正規化ロジック。
-- **tests/**: 設定モデルに対する正常系・異常系テスト。TDD の起点となる。
-- **Makefile**: 開発者が覚えるコマンドを最小化し、フォーマット・Lint・テストを統一。
-- **plans/**: 仕様追加・変更ごとの計画を置くディレクトリ。`TEMPLATE.md` を雛形として利用する。
+### フロー
+1. **申請受付**: `/request` が JSON または form を受け取り `AccessRequest` に変換。
+2. **ローカル制限**: 日次上限・クールダウンを評価。
+3. **GPT 判定**: OpenAI Responses API で `Decision` を構造化出力で取得。
+4. **状態更新**: 例外時間を `active_until` に反映、日次カウント更新。
+5. **解除判定**: reward window / exception window を統合して解除状態を決定。
+6. **DNS 適用**: dnsmasq 設定を更新し reload。
+7. **バックグラウンド監視**: `next_transition` で次回切替時刻を計算し、自動的に再遮断/解除を反映。
+
+## 各モジュールの概要
+- `src/mama/config.py`
+  - 設定モデル（Pydantic）。パスや閾値、タイムゾーンを管理。
+- `src/mama/env.py`
+  - 環境変数から `AppConfig` を構築。
+- `src/mama/net/*`
+  - `render.py`: 設定ファイル生成。
+  - `apply.py`: 書き込み + reload (`dnsmasq` / `hostapd` / `nftables` / `sysctl`)。
+- `src/mama/gatekeeper/*`
+  - `app.py`: FastAPI / 認証 / 申請 / 設定更新。
+  - `policy.py`: 日次上限・クールダウン評価。
+  - `scheduler.py`: reward/exception window 判定。
+  - `storage.py`: JSON/JSONL 永続化。
+  - `openai_client.py`: Responses API 経由の判定。
+- `src/mama/cli.py`
+  - `apply-net` / `apply-dns` の CLI。
+- `templates/index.html`
+  - UI テンプレート（mama のローカル画面）。
 
 ## 内部仕様 / 処理フロー
-1. 開発開始時に `uv sync` で環境を構築し、`uv.lock` に依存をロック。
-2. 仕様追加・変更は `plans/` にプランを作成（1開発単位）。TDD でテスト→実装の順に進める。
-3. 実装後に `make post-change` を実行して format/lint/test を通し、`docs/` を上書きで最新状態に保つ。
-4. プランが完了したら `plans/` から削除し、ドキュメントへ反映する。
+- **apply-net**
+  1. sysctl 設定を書き込み → `sysctl --system`
+  2. hostapd 設定を書き込み → `systemctl restart hostapd`
+  3. nftables 設定を書き込み → `nft -f <config>`
+  4. dnsmasq 設定を書き込み → `systemctl reload dnsmasq`
+- **apply-dns**
+  - blocklist を空にする（解除） or 既定リストを適用（遮断） → dnsmasq reload
+- **Fail-open**
+  - GPT API 失敗時は申請分数をクランプして承認し、遮断解除を優先する。

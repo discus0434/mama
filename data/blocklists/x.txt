@@ -1,0 +1,7 @@
+# X (formerly Twitter)
+# Core domains
+x.com
+twitter.com
+# CDN / shortener
+t.co
+twimg.com

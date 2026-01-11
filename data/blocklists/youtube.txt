@@ -1,0 +1,10 @@
+# YouTube
+# Core domains
+youtube.com
+youtu.be
+youtube-nocookie.com
+# App/API/CDN
+youtubei.googleapis.com
+youtube.googleapis.com
+ytimg.com
+googlevideo.com

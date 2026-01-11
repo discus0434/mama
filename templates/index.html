@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>mama gatekeeper</title>
+</head>
+<body>
+  <h1>mama gatekeeper</h1>
+  <section>
+    <h2>Request access</h2>
+    <form method="post" action="/request">
+      <label>Purpose <input name="purpose" /></label><br />
+      <label>Requested minutes <input name="requested_minutes" type="number" min="1" max="120" /></label><br />
+      <label>Deadline <input name="deadline" /></label><br />
+      <label>No alternative <input name="no_alternative" /></label><br />
+      <button type="submit">Submit</button>
+    </form>
+  </section>
+  <section>
+    <h2>Reward time</h2>
+    <form method="post" action="/settings">
+      <label>reward_start <input name="reward_start" placeholder="21:00" /></label><br />
+      <label>reward_enabled <input name="reward_enabled" type="checkbox" /></label><br />
+      <button type="submit">Update</button>
+    </form>
+  </section>
+</body>
+</html>

@@ -1,0 +1,12 @@
+[Unit]
+Description=mama Network Apply (hostapd/dnsmasq/nftables/sysctl)
+After=network.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/mama/mama.env
+WorkingDirectory=/opt/mama
+ExecStart=/usr/bin/env uv run python -m mama.cli apply-net
+
+[Install]
+WantedBy=multi-user.target

@@ -1,34 +1,54 @@
+from datetime import time
+
 import pytest
 from pydantic import ValidationError
 
-from python_template_for_codex.config import ApplicationConfig
+from mama.config import (
+    AppConfig,
+    ExceptionPolicyConfig,
+    GatekeeperConfig,
+    NetworkConfig,
+    RewardConfig,
+)
 
 
-def test_valid_config_accepts_values() -> None:
-    config = ApplicationConfig(name="demo-service", version="0.1.0", debug=True)
+def test_app_config_defaults() -> None:
+    config = AppConfig(
+        network=NetworkConfig(ssid="mama", passphrase="password123"),
+        gatekeeper=GatekeeperConfig(
+            auth_password="secret",
+            openai_api_key="sk-test",
+        ),
+    )
 
-    assert config.name == "demo-service"
-    assert config.version == "0.1.0"
-    assert config.debug is True
-
-
-def test_debug_defaults_to_false() -> None:
-    config = ApplicationConfig(name="demo", version="1.2.3")
-
-    assert config.debug is False
-
-
-def test_version_requires_semver_pattern() -> None:
-    with pytest.raises(ValidationError) as excinfo:
-        ApplicationConfig(name="demo", version="v1")
-
-    message = str(excinfo.value)
-    assert "version" in message
-    assert "string_pattern_mismatch" in message
+    assert config.reward.start_time == time(21, 0)
+    assert config.reward.duration_minutes == 60
+    assert config.exception_policy.daily_limit == 10
+    assert config.exception_policy.min_minutes == 5
+    assert config.exception_policy.max_minutes == 30
+    assert config.gatekeeper.reasoning_effort == "medium"
+    assert config.gatekeeper.timezone == "Asia/Tokyo"
 
 
-def test_name_is_required() -> None:
-    with pytest.raises(ValidationError) as excinfo:
-        ApplicationConfig(version="1.0.0")  # type: ignore[call-arg]
+def test_network_config_rejects_short_passphrase() -> None:
+    with pytest.raises(ValidationError):
+        NetworkConfig(ssid="mama", passphrase="short")
 
-    assert "name" in str(excinfo.value)
+
+def test_gatekeeper_rejects_invalid_reasoning_effort() -> None:
+    with pytest.raises(ValidationError):
+        GatekeeperConfig(
+            auth_password="secret",
+            openai_api_key="sk-test",
+            reasoning_effort="extreme",
+        )
+
+
+def test_exception_policy_rejects_invalid_range() -> None:
+    with pytest.raises(ValidationError):
+        ExceptionPolicyConfig(min_minutes=20, max_minutes=10)
+
+
+def test_reward_duration_is_fixed_one_hour() -> None:
+    with pytest.raises(ValidationError):
+        RewardConfig(duration_minutes=30)

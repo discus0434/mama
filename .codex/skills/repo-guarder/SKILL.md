@@ -17,8 +17,14 @@ license: Complete terms in LICENSE.txt
 2. **テスト先行**: 変更点に対応する失敗テストを追加（正常/異常/境界/NotFound/権限の両面）。
 3. **実装**: 最小実装→リファクタ。遅延import・不要フォールバックは禁止。
 4. **検証**: `make post-change`（ruff format+lint+pytest）。必要に応じて限定pytest。
-5. **ドキュメント**: docs/REQUIREMENTS.md / docs/DESIGN.md を現況で上書き。履歴は `docs/CHANGELOG.md` に日付降順で追記。
-6. **クリーンアップ**: プランの完了条件を満たしたら plans/ から削除。
+5. **セルフレビュー**: plan-reviewer でプランとコード/テストの一致を確認し、乖離があれば修正。
+6. **ドキュメント**: docs/REQUIREMENTS.md / docs/DESIGN.md を現況で上書き。履歴は `docs/CHANGELOG.md` に日付降順で追記。
+7. **クリーンアップ**: プランの完了条件を満たしたら plans/ から削除。
+
+## TODO更新
+- プランに記載したTODOは「開始/完了/中断」の節目で更新する（開始→in_progress、完了→done、中断→blocked/hold+理由1行）。
+- ユーザーに制御を返す前に、最低1回はTODOの状態を最新化する。
+- 2ターン以上かかりそうなTODOは、可能なら分割して追跡する。
 
 ## Pythonルール
 - Python 3.12 前提。型は標準形（`dict[str, int]` など）、`from __future__ import annotations` は使わない。

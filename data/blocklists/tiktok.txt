@@ -1,0 +1,7 @@
+# TikTok
+# Core domains
+tiktok.com
+# CDN / media
+tiktokcdn.com
+tiktokcdn-us.com
+tiktokv.com
